@@ -1,0 +1,12 @@
+﻿process_id,process_name,sequence
+1,Wafer_Saw,1
+2,Die_Attach,2
+3,Wire_Bond,3
+4,Molding,4
+5,Rinse,5
+6,Plating,6
+7,Coating,7
+8,Trim_Form,8
+9,Laser_Marking,9
+10,Electrical_Test,10
+11,Final_Inspection,11
