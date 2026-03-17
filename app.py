@@ -1,10 +1,7 @@
-from fastapi import FastAPI
-import subprocess
-import sys
+from fastapi import FastAPI, UploadFile, File
+import shutil
 import os
-import pandas as pd
-
-from Engine import scheduler
+import subprocess
 
 app = FastAPI()
 
@@ -14,41 +11,42 @@ def root():
     return {"message": "SmartFab API is running"}
 
 
-@app.get("/run")
-def run_all():
+# 👉 upload demand + chạy pipeline
+@app.post("/run")
+async def run_pipeline(file: UploadFile = File(...)):
+
+    # lưu file demand user upload
+    file_location = f"data/{file.filename}"
+
+    with open(file_location, "wb") as buffer:
+        shutil.copyfileobj(file.file, buffer)
+
     try:
-        print("[INFO] Running scheduler...")
-        scheduler.main()
-
-        # ✅ FIX 1: đảm bảo file downtime tồn tại
-        downtime_path = "database/planned_downtime_schedule.csv"
-
-        if not os.path.exists(downtime_path):
-            print("[WARNING] Downtime file missing → creating empty file")
-            pd.DataFrame(
-                columns=["line_id", "process", "start_time", "end_time"]
-            ).to_csv(downtime_path, index=False)
-
-        # ✅ FIX 2: chạy gantt chart + log
-        print("[INFO] Running Gantt chart...")
-
-        result = subprocess.run(
-            [sys.executable, "Engine/gantt_chart.py"],
-            capture_output=True,
-            text=True
+        # chạy job generator
+        subprocess.run(
+            ["python", "Engine/job_generator.py"],
+            check=True
         )
 
-        print(result.stdout)
-        print(result.stderr)
+        # chạy scheduler
+        subprocess.run(
+            ["python", "Engine/scheduler.py"],
+            check=True
+        )
 
         return {
             "status": "success",
-            "message": "Scheduler + Gantt chart generated"
+            "message": "Schedule generated"
         }
 
-    except Exception as e:
-        print("[ERROR]", str(e))
+    except subprocess.CalledProcessError as e:
         return {
             "status": "error",
             "message": str(e)
         }
+
+from fastapi.responses import FileResponse
+
+@app.get("/ui")
+def ui():
+    return FileResponse("index.html")
