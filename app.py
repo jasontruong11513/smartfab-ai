@@ -1,9 +1,22 @@
 from fastapi import FastAPI, UploadFile, File
+from fastapi.middleware.cors import CORSMiddleware
 import shutil
-import os
 import subprocess
+import sys
+import os
 
 app = FastAPI()
+
+# CORS fix cho web gọi API
+app.add_middleware(
+    CORSMiddleware,
+    allow_origins=["*"],
+    allow_credentials=True,
+    allow_methods=["*"],
+    allow_headers=["*"],
+)
+
+BASE_DIR = os.path.dirname(os.path.abspath(__file__))
 
 
 @app.get("/")
@@ -11,35 +24,63 @@ def root():
     return {"message": "SmartFab API is running"}
 
 
-# 👉 upload demand + chạy pipeline
+# =========================
+# Helper chạy script
+# =========================
+def run_script(script):
+    full_path = os.path.join(BASE_DIR, script)
+
+    result = subprocess.run(
+        [sys.executable, full_path],
+        capture_output=True,
+        text=True
+    )
+
+    print("=== RUN:", script, "===")
+    print(result.stdout)
+    print(result.stderr)
+
+    if result.returncode != 0:
+        raise Exception(result.stderr)
+
+
+# =========================
+# MAIN PIPELINE
+# =========================
 @app.post("/run")
 async def run_pipeline(file: UploadFile = File(...)):
 
-    # lưu file demand user upload
-    file_location = f"data/{file.filename}"
-
-    with open(file_location, "wb") as buffer:
-        shutil.copyfileobj(file.file, buffer)
-
     try:
-        # chạy job generator
-        subprocess.run(
-            ["python", "Engine/job_generator.py"],
-            check=True
-        )
+        os.makedirs("data", exist_ok=True)
+        os.makedirs("database", exist_ok=True)
 
-        # chạy scheduler
-        subprocess.run(
-            ["python", "Engine/scheduler.py"],
-            check=True
-        )
+        # 🔥 1. save demand file
+        demand_path = os.path.join("data", "demand.csv")
+
+        with open(demand_path, "wb") as buffer:
+            shutil.copyfileobj(file.file, buffer)
+
+        print("[INFO] Demand uploaded")
+
+        # 🔥 2. run pipeline đúng thứ tự
+        run_script("Engine/job_generator.py")
+        run_script("Engine/routing_generator.py")   # ❗ quan trọng
+        run_script("Engine/factory_assignment.py")
+        run_script("Engine/scheduler.py")
+        run_script("Engine/gantt_chart.py")
 
         return {
             "status": "success",
-            "message": "Schedule generated"
+            "message": "Pipeline completed",
+            "outputs": [
+                "database/generated_jobs.csv",
+                "database/job_process_flow.csv",
+                "database/schedule_final.csv",
+                "gantt_chart.html"
+            ]
         }
 
-    except subprocess.CalledProcessError as e:
+    except Exception as e:
         return {
             "status": "error",
             "message": str(e)

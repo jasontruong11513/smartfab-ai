@@ -14,7 +14,7 @@ def main():
     if os.path.exists(downtime_path):
         downtime = pd.read_csv(downtime_path)
     else:
-        print("[WARNING] No downtime file found → using empty dataframe")
+        print("[WARNING] No downtime file found, try using empty dataframe")
         downtime = pd.DataFrame(
             columns=["line_id", "process", "start_time", "end_time"]
         )
