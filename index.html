@@ -1,17 +1,3 @@
-<!DOCTYPE html>
-<html>
-<head>
-    <title>SmartFab Upload</title>
-</head>
-<body>
-
-<h2>Upload Demand File</h2>
-
-<input type="file" id="fileInput">
-<button onclick="upload()">Run Schedule</button>
-
-<p id="result"></p>
-
 <script>
 async function upload() {
     const file = document.getElementById("fileInput").files[0];
@@ -19,7 +5,7 @@ async function upload() {
     let formData = new FormData();
     formData.append("file", file);
 
-    const res = await fetch("/run", {
+    const res = await fetch("https://smartfab-ai.onrender.com/run", {
         method: "POST",
         body: formData
     });
@@ -28,6 +14,3 @@ async function upload() {
     document.getElementById("result").innerText = JSON.stringify(data);
 }
 </script>
-
-</body>
-</html>
